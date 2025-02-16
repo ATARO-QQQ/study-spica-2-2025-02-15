@@ -10,19 +10,19 @@
             margin: 0;
             height: 100%;
             display: flex;
-            flex-direction: row; /* 横並びにする */
+            flex-direction: row;
             overflow: hidden;
         }
         #controls {
             background: rgba(255, 255, 255, 0.8);
             padding: 10px;
             border-radius: 5px;
-            width: 300px; /* 固定幅 */
-            height: 100vh; /* 高さを100%に設定 */
-            overflow-y: auto; /* スクロール可能にする */
+            width: 300px;
+            height: 100vh;
+            overflow-y: auto;
         }
         canvas {
-            flex-grow: 1; /* 残りのスペースを埋める */
+            flex-grow: 1;
         }
         #controls label {
             display: block;
@@ -37,53 +37,52 @@
     <div id="controls">
         <label>速度調整: <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1"></label>
         <label>天体の数: <input type="number" id="planetCount" min="1" max="10" value="5"></label>
-        <div id="planetSettings">
-            <!-- 各天体の設定は動的に追加されます -->
-        </div>
+        <div id="planetSettings"></div>
         <button id="updatePlanets">更新</button>
     </div>
     <script>
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth - 300, window.innerHeight); // コントロールパネルの幅を引いたサイズ
+        renderer.setSize(window.innerWidth - 300, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 恒星を作成（サイズを小さく）
-        const starGeometry = new THREE.SphereGeometry(1, 32, 32); // 恒星の半径を1に変更
-        const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-        const star = new THREE.Mesh(starGeometry, starMaterial);
-        scene.add(star);
+        // 3つの恒星を作成
+        const stars = [];
+        for (let i = 0; i < 3; i++) {
+            const starGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const starMaterial = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff });
+            const star = new THREE.Mesh(starGeometry, starMaterial);
+            star.position.set(Math.random() * 20 - 10, Math.random() * 20 - 10, Math.random() * 20 - 10);
+            stars.push(star);
+            scene.add(star);
+        }
 
-        // 天体の設定を動的に更新
+        // 天体設定を動的に更新
         function updatePlanetControls() {
             const planetSettingsDiv = document.getElementById('planetSettings');
-            planetSettingsDiv.innerHTML = ''; // 初期化
+            planetSettingsDiv.innerHTML = '';
 
             const planetCount = parseInt(document.getElementById('planetCount').value);
             for (let i = 0; i < planetCount; i++) {
                 const planetDiv = document.createElement('div');
                 planetDiv.innerHTML = `
                     <h4>天体 ${i + 1}</h4>
-                    <label>色: <input type="color" id="color${i}" value="#${Math.floor(Math.random()*16777215).toString(16)}"></label>
+                    <label>色: <input type="color" id="color${i}" value="#${Math.floor(Math.random() * 16777215).toString(16)}"></label>
                     <label>大きさ: <input type="number" id="size${i}" min="0.1" max="1" step="0.1" value="${(0.1 + Math.random()).toFixed(1)}"></label>
-                    <label>公転半径: <input type="number" id="radius${i}" min="3" max="15" step="1" value="${(3 + i * 2)}"></label> <!-- 公転半径を小さく -->
+                    <label>公転半径: <input type="number" id="radius${i}" min="3" max="15" step="1" value="${(3 + i * 2)}"></label>
                     <label>速度: <input type="number" id="speed${i}" min="0.01" max="0.1" step="0.01" value="${(0.01 + Math.random() * 0.02).toFixed(2)}"></label>
                 `;
                 planetSettingsDiv.appendChild(planetDiv);
             }
         }
 
-        // 初期化時の天体数を更新
         updatePlanetControls();
 
-        // 天体の数変更時に設定を更新
         document.getElementById('planetCount').addEventListener('input', updatePlanetControls);
 
-        // 天体設定を反映
         const planets = [];
         document.getElementById('updatePlanets').addEventListener('click', () => {
-            // 既存の天体をシーンから削除
             planets.forEach(p => scene.remove(p.planet));
 
             const planetCount = parseInt(document.getElementById('planetCount').value);
@@ -101,68 +100,43 @@
             }
         });
 
-        // カメラ設定
         camera.position.set(0, 15, 0);
         camera.lookAt(0, 0, 0);
 
-        // 速度調整
         let globalSpeed = 1;
         document.getElementById("speed").addEventListener("input", (event) => {
             globalSpeed = parseFloat(event.target.value);
         });
 
-        // 重力相互作用を計算する関数
-        function calculateGravityEffect(p1, p2) {
+        // 重力計算
+        function calculateGravitationalForce(planet, star) {
             const G = 6.67430e-11; // 万有引力定数
-            const dx = p2.planet.position.x - p1.planet.position.x;
-            const dy = p2.planet.position.y - p1.planet.position.y;
-            const dz = p2.planet.position.z - p1.planet.position.z;
-            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            const force = (G * p1.planet.mass * p2.planet.mass) / (distance * distance);
-            const fx = force * (dx / distance);
-            const fy = force * (dy / distance);
-            const fz = force * (dz / distance);
-
-            // 影響を受ける天体の位置に力を加える
-            p1.planet.velocity.x += fx / p1.planet.mass;
-            p1.planet.velocity.y += fy / p1.planet.mass;
-            p1.planet.velocity.z += fz / p1.planet.mass;
+            const starMass = 1.989e30; // 恒星の質量（太陽と仮定）
+            const distance = planet.planet.position.distanceTo(star.position);
+            const force = (G * starMass * planet.planet.geometry.parameters.radius ** 2) / (distance ** 2);
+            return force;
         }
 
-        // 軌道描画
-        const orbitLines = [];
-        function updateOrbits() {
-            orbitLines.forEach(line => scene.remove(line)); // 既存の軌道線を削除
-            for (let i = 0; i < planets.length; i++) {
-                const orbitRadius = planets[i].orbitRadius;
-                const curve = new THREE.EllipseCurve(0, 0, orbitRadius, orbitRadius, 0, 2 * Math.PI, false, 0);
-                const points = curve.getPoints(100);
-                const geometry = new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(p.x, 0, p.y)));
-                const material = new THREE.LineBasicMaterial({ color: 0xffffff });
-                const orbitLine = new THREE.Line(geometry, material);
-                scene.add(orbitLine);
-                orbitLines.push(orbitLine);
-            }
+        function update() {
+            planets.forEach(p => {
+                let totalForce = new THREE.Vector3(0, 0, 0);
+                stars.forEach(star => {
+                    const force = calculateGravitationalForce(p, star);
+                    const direction = new THREE.Vector3().subVectors(star.position, p.planet.position).normalize();
+                    totalForce.add(direction.multiplyScalar(force));
+                });
+                
+                // 重力による加速度
+                p.planet.position.add(totalForce.multiplyScalar(globalSpeed));
+                p.angle += p.speed * globalSpeed;
+                p.planet.position.set(p.orbitRadius * Math.cos(p.angle), 0, p.orbitRadius * Math.sin(p.angle));
+            });
+            renderer.render(scene, camera);
         }
 
         function animate() {
             requestAnimationFrame(animate);
-
-            // 各天体間の重力相互作用
-            for (let i = 0; i < planets.length; i++) {
-                for (let j = i + 1; j < planets.length; j++) {
-                    calculateGravityEffect(planets[i], planets[j]);
-                }
-            }
-
-            // 天体の更新
-            planets.forEach(p => {
-                p.angle += p.speed * globalSpeed;
-                p.planet.position.set(p.orbitRadius * Math.cos(p.angle), 0, p.orbitRadius * Math.sin(p.angle));
-            });
-
-            updateOrbits();
-            renderer.render(scene, camera);
+            update();
         }
 
         animate();
