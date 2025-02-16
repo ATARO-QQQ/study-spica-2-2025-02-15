@@ -45,7 +45,7 @@
 
         starData.forEach((data, index) => {
             const star = new THREE.Mesh(
-                new THREE.SphereGeometry(2, 32, 32), // 恒星を大きくする
+                new THREE.SphereGeometry(2, 32, 32),
                 new THREE.MeshBasicMaterial({ color: 0xffff00 })
             );
             star.position.copy(data.position);
@@ -86,7 +86,7 @@
                         stars[i].star.position.z + orbitRadius * Math.sin(angle)
                     );
                     
-                    const speed = Math.sqrt(0.3 / orbitRadius); // 重力を強める
+                    const speed = Math.sqrt(0.5 / orbitRadius) * (0.8 + Math.random() * 0.4); // 各惑星の初速を異なるものにする
                     const velocity = new THREE.Vector3(-speed * Math.sin(angle), 0, speed * Math.cos(angle));
                     
                     scene.add(planet);
@@ -118,7 +118,7 @@
                             closestStar = otherStar;
                         }
                         if (distance > 1) {
-                            direction.normalize().multiplyScalar(0.2 / (distance * distance)); // 重力をさらに強化
+                            direction.normalize().multiplyScalar(0.5 / (distance * distance)); // 重力をさらに強化
                             force.add(direction);
                         }
                     });
@@ -130,9 +130,9 @@
                     p.velocity.add(force);
                     p.planet.position.add(p.velocity.clone().multiplyScalar(globalSpeed));
                     
-                    // 3つの恒星の重力圏外に出ないよう制御
                     if (p.planet.position.length() > 40) {
                         p.velocity.multiplyScalar(-0.5);
+                        p.velocity.add(new THREE.Vector3().subVectors(p.homeStar.position, p.planet.position).normalize().multiplyScalar(0.05)); // 自然に重力圏へ戻る
                     }
                 });
             });
