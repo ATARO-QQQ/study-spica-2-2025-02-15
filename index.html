@@ -45,7 +45,7 @@
 
         starData.forEach((data, index) => {
             const star = new THREE.Mesh(
-                new THREE.SphereGeometry(1, 32, 32),
+                new THREE.SphereGeometry(2, 32, 32), // 恒星を大きくする
                 new THREE.MeshBasicMaterial({ color: 0xffff00 })
             );
             star.position.copy(data.position);
@@ -85,7 +85,7 @@
                         stars[i].star.position.z
                     );
                     
-                    const speed = Math.sqrt(0.1 / orbitRadius);
+                    const speed = Math.sqrt(0.2 / orbitRadius); // 重力を強める
                     const velocity = new THREE.Vector3(0, 0, speed);
                     
                     scene.add(planet);
@@ -117,7 +117,7 @@
                             closestStar = otherStar;
                         }
                         if (distance > 1) {
-                            direction.normalize().multiplyScalar(0.05 / (distance * distance));
+                            direction.normalize().multiplyScalar(0.1 / (distance * distance)); // 重力をさらに強化
                             force.add(direction);
                         }
                     });
