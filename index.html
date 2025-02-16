@@ -79,12 +79,12 @@
                         new THREE.MeshBasicMaterial({ color: 0x00ff00 })
                     );
                     scene.add(planet);
-                    starData.planets.push({ planet, angle: Math.random() * Math.PI * 2, orbitRadius: 5 + j * 3 });
+                    starData.planets.push({ planet, velocity: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5), orbitRadius: 5 + j * 3 });
                 }
             });
         });
 
-        camera.position.set(0, 30, 40);
+        camera.position.set(0, 50, 0);
         camera.lookAt(0, 0, 0);
 
         let globalSpeed = 1;
@@ -92,20 +92,29 @@
             globalSpeed = parseFloat(event.target.value);
         });
 
-        function animate() {
-            requestAnimationFrame(animate);
-            
+        function applyGravity() {
             stars.forEach(({ star, planets }) => {
                 planets.forEach(p => {
-                    p.angle += 0.01 * globalSpeed;
-                    p.planet.position.set(
-                        star.position.x + p.orbitRadius * Math.cos(p.angle),
-                        0,
-                        star.position.z + p.orbitRadius * Math.sin(p.angle)
-                    );
+                    let force = new THREE.Vector3();
+                    stars.forEach(({ star: otherStar }) => {
+                        if (star !== otherStar) {
+                            let direction = new THREE.Vector3().subVectors(otherStar.position, p.planet.position);
+                            let distance = direction.length();
+                            if (distance > 1) {
+                                direction.normalize().multiplyScalar(0.01 / (distance * distance));
+                                force.add(direction);
+                            }
+                        }
+                    });
+                    p.velocity.add(force);
+                    p.planet.position.add(p.velocity.clone().multiplyScalar(globalSpeed));
                 });
             });
-            
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            applyGravity();
             renderer.render(scene, camera);
         }
         animate();
