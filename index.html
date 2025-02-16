@@ -89,7 +89,7 @@
                     const velocity = new THREE.Vector3(0, 0, speed);
                     
                     scene.add(planet);
-                    starData.planets.push({ planet, velocity, orbitRadius });
+                    starData.planets.push({ planet, velocity, orbitRadius, homeStar: stars[i].star });
                 }
             });
         });
@@ -106,18 +106,33 @@
             stars.forEach(({ star, planets }) => {
                 planets.forEach(p => {
                     let force = new THREE.Vector3();
+                    let closestStar = p.homeStar;
+                    let minDistance = Infinity;
+                    
                     stars.forEach(({ star: otherStar }) => {
-                        if (star !== otherStar) {
-                            let direction = new THREE.Vector3().subVectors(otherStar.position, p.planet.position);
-                            let distance = direction.length();
-                            if (distance > 1) {
-                                direction.normalize().multiplyScalar(0.05 / (distance * distance));
-                                force.add(direction);
-                            }
+                        let direction = new THREE.Vector3().subVectors(otherStar.position, p.planet.position);
+                        let distance = direction.length();
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestStar = otherStar;
+                        }
+                        if (distance > 1) {
+                            direction.normalize().multiplyScalar(0.05 / (distance * distance));
+                            force.add(direction);
                         }
                     });
+                    
+                    if (minDistance < 15) {
+                        p.homeStar = closestStar;
+                    }
+                    
                     p.velocity.add(force);
                     p.planet.position.add(p.velocity.clone().multiplyScalar(globalSpeed));
+                    
+                    // 画面外に出ないよう制御
+                    if (p.planet.position.length() > 50) {
+                        p.velocity.multiplyScalar(-0.5);
+                    }
                 });
             });
         }
