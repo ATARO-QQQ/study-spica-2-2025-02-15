@@ -43,8 +43,6 @@
         <button id="updatePlanets">更新</button>
     </div>
     <script>
-        const G = 6.67430e-11; // 万有引力定数
-
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer();
@@ -65,12 +63,13 @@
             const planetCount = parseInt(document.getElementById('planetCount').value);
             for (let i = 0; i < planetCount; i++) {
                 const planetDiv = document.createElement('div');
-                planetDiv.innerHTML = 
-                    `<h4>天体 ${i + 1}</h4>
+                planetDiv.innerHTML = `
+                    <h4>天体 ${i + 1}</h4>
                     <label>色: <input type="color" id="color${i}" value="#${Math.floor(Math.random()*16777215).toString(16)}"></label>
-                    <label>大きさ: <input type="number" id="size${i}" min="0.1" max="1" step="0.1" value="${(0.1 + Math.random()).toFixed(1)}"></label> <!-- 大きさを小さく -->
+                    <label>大きさ: <input type="number" id="size${i}" min="0.1" max="1" step="0.1" value="${(0.1 + Math.random()).toFixed(1)}"></label>
                     <label>公転半径: <input type="number" id="radius${i}" min="3" max="15" step="1" value="${(3 + i * 2)}"></label> <!-- 公転半径を小さく -->
-                    <label>速度: <input type="number" id="speed${i}" min="0.01" max="0.1" step="0.01" value="${(0.01 + Math.random() * 0.02).toFixed(2)}"></label>`;
+                    <label>速度: <input type="number" id="speed${i}" min="0.01" max="0.1" step="0.01" value="${(0.01 + Math.random() * 0.02).toFixed(2)}"></label>
+                `;
                 planetSettingsDiv.appendChild(planetDiv);
             }
         }
@@ -81,50 +80,24 @@
         // 天体の数変更時に設定を更新
         document.getElementById('planetCount').addEventListener('input', updatePlanetControls);
 
-        // 重力の計算
-        function calculateGravitationalForce(planet1, planet2) {
-            const dx = planet2.planet.position.x - planet1.planet.position.x;
-            const dy = planet2.planet.position.y - planet1.planet.position.y;
-            const dz = planet2.planet.position.z - planet1.planet.position.z;
-            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            const force = G * planet1.mass * planet2.mass / (distance * distance);
-            return force;
-        }
-
-        // 天体の質量をランダムに決定（例：サイズから比例）
-        function generateMass(size) {
-            return size * 5e24; // サイズに比例して質量を設定
-        }
-
         // 天体設定を反映
-        const systems = [];
+        const planets = [];
         document.getElementById('updatePlanets').addEventListener('click', () => {
             // 既存の天体をシーンから削除
-            systems.forEach(system => system.planets.forEach(p => scene.remove(p.planet)));
-
-            systems.length = 0; // 系をリセット
+            planets.forEach(p => scene.remove(p.planet));
 
             const planetCount = parseInt(document.getElementById('planetCount').value);
-            for (let i = 0; i < 3; i++) { // 3つの星系を作成
-                const system = {
-                    planets: [],
-                    center: new THREE.Vector3(0, 0, 0),
-                };
+            for (let i = 0; i < planetCount; i++) {
+                const color = new THREE.Color(document.getElementById(`color${i}`).value);
+                const size = parseFloat(document.getElementById(`size${i}`).value);
+                const orbitRadius = parseFloat(document.getElementById(`radius${i}`).value);
+                const speed = parseFloat(document.getElementById(`speed${i}`).value);
+                const geometry = new THREE.SphereGeometry(size, 16, 16);
+                const material = new THREE.MeshBasicMaterial({ color });
+                const planet = new THREE.Mesh(geometry, material);
+                scene.add(planet);
 
-                for (let j = 0; j < planetCount; j++) {
-                    const color = new THREE.Color(document.getElementById(`color${i * planetCount + j}`).value);
-                    const size = parseFloat(document.getElementById(`size${i * planetCount + j}`).value);
-                    const orbitRadius = parseFloat(document.getElementById(`radius${i * planetCount + j}`).value);
-                    const speed = parseFloat(document.getElementById(`speed${i * planetCount + j}`).value);
-                    const geometry = new THREE.SphereGeometry(size, 16, 16);
-                    const material = new THREE.MeshBasicMaterial({ color });
-                    const planet = new THREE.Mesh(geometry, material);
-                    scene.add(planet);
-
-                    const mass = generateMass(size);
-                    system.planets.push({ planet, orbitRadius, speed, angle: Math.random() * Math.PI * 2, mass });
-                }
-                systems.push(system);
+                planets.push({ planet, orbitRadius, speed, angle: Math.random() * Math.PI * 2 });
             }
         });
 
@@ -138,46 +111,60 @@
             globalSpeed = parseFloat(event.target.value);
         });
 
-        function updateOrbits() {
-            systems.forEach(system => {
-                system.planets.forEach(planet => {
-                    planet.angle += planet.speed * globalSpeed;
-                    planet.planet.position.set(planet.orbitRadius * Math.cos(planet.angle), 0, planet.orbitRadius * Math.sin(planet.angle));
-                });
-            });
+        // 重力相互作用を計算する関数
+        function calculateGravityEffect(p1, p2) {
+            const G = 6.67430e-11; // 万有引力定数
+            const dx = p2.planet.position.x - p1.planet.position.x;
+            const dy = p2.planet.position.y - p1.planet.position.y;
+            const dz = p2.planet.position.z - p1.planet.position.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            const force = (G * p1.planet.mass * p2.planet.mass) / (distance * distance);
+            const fx = force * (dx / distance);
+            const fy = force * (dy / distance);
+            const fz = force * (dz / distance);
+
+            // 影響を受ける天体の位置に力を加える
+            p1.planet.velocity.x += fx / p1.planet.mass;
+            p1.planet.velocity.y += fy / p1.planet.mass;
+            p1.planet.velocity.z += fz / p1.planet.mass;
         }
 
-        function applyGravity() {
-            systems.forEach(system => {
-                system.planets.forEach((planet1, i) => {
-                    systems.forEach(system2 => {
-                        system2.planets.forEach((planet2, j) => {
-                            if (i !== j) {
-                                const force = calculateGravitationalForce(planet1, planet2);
-                                const dx = planet2.planet.position.x - planet1.planet.position.x;
-                                const dy = planet2.planet.position.y - planet1.planet.position.y;
-                                const dz = planet2.planet.position.z - planet1.planet.position.z;
-                                const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                                const fx = (force * dx) / distance;
-                                const fy = (force * dy) / distance;
-                                const fz = (force * dz) / distance;
-
-                                planet1.planet.position.x += fx;
-                                planet1.planet.position.y += fy;
-                                planet1.planet.position.z += fz;
-                            }
-                        });
-                    });
-                });
-            });
+        // 軌道描画
+        const orbitLines = [];
+        function updateOrbits() {
+            orbitLines.forEach(line => scene.remove(line)); // 既存の軌道線を削除
+            for (let i = 0; i < planets.length; i++) {
+                const orbitRadius = planets[i].orbitRadius;
+                const curve = new THREE.EllipseCurve(0, 0, orbitRadius, orbitRadius, 0, 2 * Math.PI, false, 0);
+                const points = curve.getPoints(100);
+                const geometry = new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(p.x, 0, p.y)));
+                const material = new THREE.LineBasicMaterial({ color: 0xffffff });
+                const orbitLine = new THREE.Line(geometry, material);
+                scene.add(orbitLine);
+                orbitLines.push(orbitLine);
+            }
         }
 
         function animate() {
             requestAnimationFrame(animate);
+
+            // 各天体間の重力相互作用
+            for (let i = 0; i < planets.length; i++) {
+                for (let j = i + 1; j < planets.length; j++) {
+                    calculateGravityEffect(planets[i], planets[j]);
+                }
+            }
+
+            // 天体の更新
+            planets.forEach(p => {
+                p.angle += p.speed * globalSpeed;
+                p.planet.position.set(p.orbitRadius * Math.cos(p.angle), 0, p.orbitRadius * Math.sin(p.angle));
+            });
+
             updateOrbits();
-            applyGravity();
             renderer.render(scene, camera);
         }
+
         animate();
     </script>
 </body>
