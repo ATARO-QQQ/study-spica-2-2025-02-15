@@ -60,8 +60,7 @@
             stars.forEach((_, i) => {
                 const div = document.createElement("div");
                 div.innerHTML = `<h4>恒星 ${i + 1}</h4>
-                    <label>惑星数: <input type="number" id="planetCount${i}" min="0" max="10" value="3"></label>
-                    <div id="planetSettings${i}"></div>`;
+                    <label>惑星数: <input type="number" id="planetCount${i}" min="0" max="10" value="3"></label>`;
                 container.appendChild(div);
             });
         }
@@ -78,8 +77,19 @@
                         new THREE.SphereGeometry(0.5, 16, 16),
                         new THREE.MeshBasicMaterial({ color: 0x00ff00 })
                     );
+                    
+                    const orbitRadius = 5 + j * 3;
+                    planet.position.set(
+                        stars[i].star.position.x + orbitRadius,
+                        0,
+                        stars[i].star.position.z
+                    );
+                    
+                    const speed = Math.sqrt(0.1 / orbitRadius);
+                    const velocity = new THREE.Vector3(0, 0, speed);
+                    
                     scene.add(planet);
-                    starData.planets.push({ planet, velocity: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5), orbitRadius: 5 + j * 3 });
+                    starData.planets.push({ planet, velocity, orbitRadius });
                 }
             });
         });
@@ -101,7 +111,7 @@
                             let direction = new THREE.Vector3().subVectors(otherStar.position, p.planet.position);
                             let distance = direction.length();
                             if (distance > 1) {
-                                direction.normalize().multiplyScalar(0.01 / (distance * distance));
+                                direction.normalize().multiplyScalar(0.05 / (distance * distance));
                                 force.add(direction);
                             }
                         }
