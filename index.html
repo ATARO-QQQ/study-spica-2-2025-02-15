@@ -38,9 +38,9 @@
 
         const stars = [];
         const starData = [
-            { position: new THREE.Vector3(-20, 0, 0) },
-            { position: new THREE.Vector3(0, 0, 0) },
-            { position: new THREE.Vector3(20, 0, 0) }
+            { position: new THREE.Vector3(-15, 0, -15) },
+            { position: new THREE.Vector3(15, 0, -15) },
+            { position: new THREE.Vector3(0, 0, 15) }
         ];
 
         starData.forEach((data, index) => {
@@ -79,14 +79,15 @@
                     );
                     
                     const orbitRadius = 5 + j * 3;
+                    const angle = Math.random() * Math.PI * 2;
                     planet.position.set(
-                        stars[i].star.position.x + orbitRadius,
+                        stars[i].star.position.x + orbitRadius * Math.cos(angle),
                         0,
-                        stars[i].star.position.z
+                        stars[i].star.position.z + orbitRadius * Math.sin(angle)
                     );
                     
-                    const speed = Math.sqrt(0.2 / orbitRadius); // 重力を強める
-                    const velocity = new THREE.Vector3(0, 0, speed);
+                    const speed = Math.sqrt(0.3 / orbitRadius); // 重力を強める
+                    const velocity = new THREE.Vector3(-speed * Math.sin(angle), 0, speed * Math.cos(angle));
                     
                     scene.add(planet);
                     starData.planets.push({ planet, velocity, orbitRadius, homeStar: stars[i].star });
@@ -117,20 +118,20 @@
                             closestStar = otherStar;
                         }
                         if (distance > 1) {
-                            direction.normalize().multiplyScalar(0.1 / (distance * distance)); // 重力をさらに強化
+                            direction.normalize().multiplyScalar(0.2 / (distance * distance)); // 重力をさらに強化
                             force.add(direction);
                         }
                     });
                     
-                    if (minDistance < 15) {
+                    if (minDistance < 20) {
                         p.homeStar = closestStar;
                     }
                     
                     p.velocity.add(force);
                     p.planet.position.add(p.velocity.clone().multiplyScalar(globalSpeed));
                     
-                    // 画面外に出ないよう制御
-                    if (p.planet.position.length() > 50) {
+                    // 3つの恒星の重力圏外に出ないよう制御
+                    if (p.planet.position.length() > 40) {
                         p.velocity.multiplyScalar(-0.5);
                     }
                 });
