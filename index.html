@@ -3,20 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>天体公転シミュレーション</title>
+    <title>複数恒星の天体シミュレーション</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body {
             margin: 0;
-            height: 100%;
             display: flex;
-            flex-direction: row;
             overflow: hidden;
         }
         #controls {
             background: rgba(255, 255, 255, 0.8);
             padding: 10px;
-            border-radius: 5px;
             width: 300px;
             height: 100vh;
             overflow-y: auto;
@@ -24,23 +21,13 @@
         canvas {
             flex-grow: 1;
         }
-        #controls label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        #planetSettings div {
-            margin-bottom: 10px;
-        }
     </style>
 </head>
 <body>
     <div id="controls">
-        <label>速度調整: <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1"></label>
-        <label>天体の数: <input type="number" id="planetCount" min="1" max="10" value="5"></label>
-        <div id="planetSettings">
-            <!-- 各天体の設定は動的に追加されます -->
-        </div>
-        <button id="updatePlanets">更新</button>
+        <label>速度: <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1"></label>
+        <div id="stars"></div>
+        <button id="update">更新</button>
     </div>
     <script>
         const scene = new THREE.Scene();
@@ -49,62 +36,55 @@
         renderer.setSize(window.innerWidth - 300, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 恒星を3つ作成
         const stars = [];
-        const starGeometry = new THREE.SphereGeometry(1, 32, 32);
-        const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const starData = [
+            { position: new THREE.Vector3(-20, 0, 0) },
+            { position: new THREE.Vector3(0, 0, 0) },
+            { position: new THREE.Vector3(20, 0, 0) }
+        ];
 
-        for (let i = 0; i < 3; i++) {
-            const star = new THREE.Mesh(starGeometry, starMaterial);
-            star.position.set((i - 1) * 20, 0, 0); // 画面に収まるように配置
+        starData.forEach((data, index) => {
+            const star = new THREE.Mesh(
+                new THREE.SphereGeometry(1, 32, 32),
+                new THREE.MeshBasicMaterial({ color: 0xffff00 })
+            );
+            star.position.copy(data.position);
             scene.add(star);
-            stars.push(star);
-        }
-
-        // 天体の設定を動的に更新
-        function updatePlanetControls() {
-            const planetSettingsDiv = document.getElementById('planetSettings');
-            planetSettingsDiv.innerHTML = ''; 
-
-            const planetCount = parseInt(document.getElementById('planetCount').value);
-            for (let i = 0; i < planetCount; i++) {
-                const planetDiv = document.createElement('div');
-                planetDiv.innerHTML = `
-                    <h4>天体 ${i + 1}</h4>
-                    <label>色: <input type="color" id="color${i}" value="#${Math.floor(Math.random()*16777215).toString(16)}"></label>
-                    <label>大きさ: <input type="number" id="size${i}" min="0.1" max="1" step="0.1" value="${(0.1 + Math.random()).toFixed(1)}"></label>
-                    <label>公転半径: <input type="number" id="radius${i}" min="3" max="15" step="1" value="${(3 + i * 2)}"></label>
-                    <label>速度: <input type="number" id="speed${i}" min="0.01" max="0.1" step="0.01" value="${(0.01 + Math.random() * 0.02).toFixed(2)}"></label>
-                `;
-                planetSettingsDiv.appendChild(planetDiv);
-            }
-        }
-
-        updatePlanetControls();
-        document.getElementById('planetCount').addEventListener('input', updatePlanetControls);
-
-        const planets = [];
-        document.getElementById('updatePlanets').addEventListener('click', () => {
-            planets.forEach(p => scene.remove(p.planet));
-
-            const planetCount = parseInt(document.getElementById('planetCount').value);
-            for (let i = 0; i < planetCount; i++) {
-                const color = new THREE.Color(document.getElementById(`color${i}`).value);
-                const size = parseFloat(document.getElementById(`size${i}`).value);
-                const orbitRadius = parseFloat(document.getElementById(`radius${i}`).value);
-                const speed = parseFloat(document.getElementById(`speed${i}`).value);
-
-                const geometry = new THREE.SphereGeometry(size, 16, 16);
-                const material = new THREE.MeshBasicMaterial({ color });
-                const planet = new THREE.Mesh(geometry, material);
-                scene.add(planet);
-
-                planets.push({ planet, orbitRadius, speed, angle: Math.random() * Math.PI * 2, velocity: new THREE.Vector3() });
-            }
+            stars.push({ star, planets: [] });
         });
 
-        // カメラ設定
-        camera.position.set(0, 15, 0);
+        function updateStarControls() {
+            const container = document.getElementById("stars");
+            container.innerHTML = "";
+            
+            stars.forEach((_, i) => {
+                const div = document.createElement("div");
+                div.innerHTML = `<h4>恒星 ${i + 1}</h4>
+                    <label>惑星数: <input type="number" id="planetCount${i}" min="0" max="10" value="3"></label>
+                    <div id="planetSettings${i}"></div>`;
+                container.appendChild(div);
+            });
+        }
+        updateStarControls();
+
+        document.getElementById("update").addEventListener("click", () => {
+            stars.forEach((starData, i) => {
+                starData.planets.forEach(p => scene.remove(p.planet));
+                starData.planets = [];
+                
+                const planetCount = parseInt(document.getElementById(`planetCount${i}`).value);
+                for (let j = 0; j < planetCount; j++) {
+                    const planet = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.5, 16, 16),
+                        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+                    );
+                    scene.add(planet);
+                    starData.planets.push({ planet, angle: Math.random() * Math.PI * 2, orbitRadius: 5 + j * 3 });
+                }
+            });
+        });
+
+        camera.position.set(0, 30, 40);
         camera.lookAt(0, 0, 0);
 
         let globalSpeed = 1;
@@ -112,41 +92,22 @@
             globalSpeed = parseFloat(event.target.value);
         });
 
-        // 重力計算
-        function calculateGravityForce(planet, star) {
-            const G = 0.1; // 万有引力定数（スケール用）
-            const distance = planet.planet.position.distanceTo(star.position);
-            const forceMagnitude = G * (planet.planet.geometry.parameters.radius * planet.planet.geometry.parameters.radius) / (distance * distance);
-
-            const direction = new THREE.Vector3().subVectors(star.position, planet.planet.position).normalize();
-            return direction.multiplyScalar(forceMagnitude);
-        }
-
-        function updatePhysics() {
-            planets.forEach(p => {
-                const forces = [];
-                stars.forEach(star => {
-                    const force = calculateGravityForce(p, star);
-                    forces.push(force);
-                });
-
-                // 合成重力
-                const totalForce = forces.reduce((acc, force) => acc.add(force), new THREE.Vector3());
-                p.velocity.add(totalForce);
-                p.planet.position.add(p.velocity);
-
-                // 公転計算
-                p.angle += p.speed * globalSpeed;
-                p.planet.position.set(p.orbitRadius * Math.cos(p.angle), 0, p.orbitRadius * Math.sin(p.angle));
-            });
-        }
-
         function animate() {
             requestAnimationFrame(animate);
-            updatePhysics();
+            
+            stars.forEach(({ star, planets }) => {
+                planets.forEach(p => {
+                    p.angle += 0.01 * globalSpeed;
+                    p.planet.position.set(
+                        star.position.x + p.orbitRadius * Math.cos(p.angle),
+                        0,
+                        star.position.z + p.orbitRadius * Math.sin(p.angle)
+                    );
+                });
+            });
+            
             renderer.render(scene, camera);
         }
-
         animate();
     </script>
 </body>
